@@ -73,6 +73,69 @@ diagram, (3) justification for your strategy, (4) relate back to lecture materia
 <!-- Make sure to clarify how you will satisfy the Unit 4 and Unit 5 requirements, 
 and which optional "difficulty" points you are attempting. -->
 
+## 1. Multi-Stage Model Architecture  
+
+**Overview:**  
+Our recommendation system follows a **multi-stage architecture** with dedicated models for **recall**, **ranking**, and **re-ranking**, which is a proven design in modern recommender systems. This design efficiently narrows down a large item pool to a personalized top-N list while capturing temporal user behavior. By splitting the task into stages, we can use specialized models at each stage and meet real-time constraints.
+
+- **Recall – LightGCN:** For the first-stage recall, we employ *LightGCN* (Light Graph Convolution Network) to leverage the collaborative signals in the Amazon Product Review dataset. LightGCN learns high-quality user and item embeddings by propagating embeddings on the user–item interaction graph. It simplifies traditional graph neural nets by focusing solely on neighborhood aggregation, yielding a lightweight yet powerful collaborative filtering model.
+
+- **Ranking – DIN (Deep Interest Network):** For second-stage ranking, we use Alibaba’s *Deep Interest Network (DIN)*, a state-of-the-art model for CTR prediction that excels at modeling temporal user behavior. Given a particular item from the recall stage, DIN focuses on the most relevant aspects of the user’s historical behaviors.
+
+- **Re-ranking – RankNet:** In the final stage, we apply *RankNet* to refine the top results from DIN. RankNet is a neural learning-to-rank approach that uses pairwise comparisons to optimize item ordering. In our pipeline, this fine-tunes the top candidates for maximum precision and can incorporate business rules or diversity constraints.
+
+**Temporal User Behavior Modeling:**  
+We emphasize capturing user behavior over time. LightGCN leverages the **accumulated historical interactions** for collaborative filtering. DIN focuses on **sequence-based interests**, using attention to highlight relevant past actions for each candidate. RankNet can then factor in **short-term vs. long-term preferences** by comparing top items pairwise. This multi-model ensemble ensures personalization and real-time adaptability, reflecting evolving user behavior at different scales.
+
+---
+
+## 2. Distributed Training Architecture  
+
+**Scale of Data:**  
+The Amazon Product Review dataset is massive, making single-machine training infeasible. We propose a **distributed training strategy** using **PyTorch** as the core deep learning framework, augmented with *Ray Train* for efficient multi-node scaling. Ray Train provides an easy-to-use API that helps distribute PyTorch training across a cluster, handling process setup and synchronization.
+
+**Ray for Distributed Training:**  
+We will deploy a Ray cluster on Chameleon Cloud. Each Ray **worker** executes the training loop on a shard of the data in parallel, synchronizing gradients at each step. LightGCN can partition the user–item graph, while DIN and RankNet use data parallelism on user sequences. Ray also offers fault tolerance and flexible scheduling, ensuring robust long-running jobs.
+
+**Collaborative Training Workflow:**  
+All three models (recall, ranking, re-ranking) can be trained in a pipeline. First, train LightGCN to learn embeddings. Next, DIN refines user–item relevance using sequence modeling. Finally, RankNet adjusts top candidates to optimize ordering. Each step runs on the Ray cluster, which speeds up epochs and easily scales to more nodes or GPUs. This distributed approach allows large-scale experimentation with minimal code changes.
+
+---
+
+## 3. Containerized Training Pipeline (Docker)  
+
+**Docker for Consistency:**  
+We containerize the training environment with **Docker**, bundling our dependencies (PyTorch, Ray, Python libraries) in a versioned image.
+
+**Integration with Orchestration:**  
+Using Docker images, we can orchestrate Ray clusters on Kubernetes or other platforms. Each node runs the same container, ensuring consistent versions and dependencies.
+
+---
+
+## 4. Experiment Tracking and Model Versioning  
+
+**MLflow Integration:**  
+To manage extensive experiments, we integrate **MLflow** for tracking. During training, MLflow logs parameters (e.g. learning rate, embedding size), metrics (e.g. NDCG, AUC), and artifacts (model checkpoints). This creates a detailed record of each run for reproducibility and comparison.
+
+**Model Registry:**  
+We register successful models in the **MLflow Model Registry**. Each version can be labeled and retrieved by the deployment pipeline. This ensures our team can easily identify the current best model and roll back if needed.
+
+---
+
+## 5. Alignment with Real-Time Pipeline and Deployment  
+
+**Kafka & Spark Streaming (Behavior Replay):**  
+User events are replayed from Kafka, and Spark Streaming updates user features in near real-time. Though the models are trained offline, new data can be incorporated into periodic retraining cycles, allowing the system to adapt quickly.
+
+**FastAPI Serving Integration:**  
+Trained models are loaded by a FastAPI service that orchestrates the multi-stage recommendation process. LightGCN is used for recall, DIN for ranking, and RankNet for final re-ranking. Redis can cache recent results to maintain sub-200ms response times. FastAPI fetches model artifacts from MLflow or a Docker volume, ensuring consistent deployment.
+
+**Deployment on Chameleon Cloud:**  
+All components—Kafka, Spark, Ray, FastAPI, and MLflow—are deployed on Chameleon Cloud. Docker containers and Kubernetes simplify resource allocation, letting us separate GPU nodes for training from CPU nodes for serving.
+
+**In summary**, our architecture unifies data streaming, distributed model training, Docker-based deployment, and MLflow-driven MLOps. By combining LightGCN, DIN, and RankNet, we address long-term user preferences, session-based interests, and fine-grained ranking optimizations.
+
+
 #### Model serving and monitoring platforms
 
 <!-- Make sure to clarify how you will satisfy the Unit 6 and Unit 7 requirements, 
