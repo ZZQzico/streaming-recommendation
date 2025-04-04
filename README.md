@@ -10,6 +10,57 @@ status quo used in the business or service? What business metric are you going t
 judged on? (Note that the “service” does not have to be for general users; you can 
 propose a system for a science problem, for example.)
 -->
+#### 📊 Scale
+
+Our system satisfies the *medium-scale* threshold in all three required dimensions:
+
+1. **Data Scale**  
+   We utilize the **Amazon Product Reviews (Books, 5-core)** dataset, which includes **millions of timestamped user–item interactions**.  
+   After preprocessing, we retain over **1 million cleaned, user-specific actions**, supporting both collaborative and sequential modeling.
+
+2. **Model Scale**  
+   The system adopts a **multi-stage model architecture**, combining:
+   - **LightGCN** for large-scale collaborative filtering-based recall,
+   - **DIN (Deep Interest Network)** for personalized ranking using temporal attention,
+   - **RankNet** for pairwise re-ranking.  
+   This qualifies as a composed system with **three interdependent models**, each optimized for a specific stage.
+
+3. **Deployment Scale**  
+   We deploy all components on **Chameleon Cloud**, using a **cloud-native microservice architecture**:
+   - Kafka (event stream), Spark (real-time user profiling), FastAPI (model serving), Redis (caching), and MLflow (experiment tracking),
+   - All services are containerized with Docker and orchestrated using Kubernetes.
+   - This setup supports **high concurrency (≥50 QPS)** and **low-latency serving (<200ms)**, enabling real-world scalability.
+
+---
+
+#### 💡 Value Proposition
+
+We propose a **real-time streaming recommendation system** targeting **e-commerce and content platforms** that currently rely on static or non-personalized recommendation logic.
+
+##### 🎯 Target Businesses / Platforms:
+- **Amazon.com** – Recommending books, gadgets, or daily-use items based on recent interactions.
+- **Walmart.com** – Suggesting frequently bought-together products in real-time based on user clickstream.
+- **Barnes & Noble** – Personalized book suggestions based on reviews, ratings, and browsing behavior.
+- **JD.com / Taobao (Alibaba)** – Optimizing recommendation timing and diversity during flash sales or live-stream events.
+- **Goodreads** – Tailoring reading lists based on review history and reading timelines.
+
+##### ⚙️ Existing (Non-ML) Workflow:
+- Most platforms use **simple popularity-based rankings**, **keyword search**, or **collaborative filtering without time-awareness**.
+- These systems **fail to adapt to dynamic interest shifts**, such as recent browsing trends, cart updates, or short-term intents.
+
+##### 🤖 ML System Improvements:
+- **Behavior Replay Pipeline (Kafka → Spark → Redis)** simulates and ingests real-time user activity.
+- **Multi-stage model cascade** ensures scalability, personalization, and session-aware recommendations.
+- **Streaming + Offline Hybrid** system design adapts quickly to evolving user interests with periodic retraining and continuous profiling.
+
+##### 📈 Key Business Metrics:
+- **CTR (Click-Through Rate):** Measures relevance of displayed recommendations.
+- **CVR (Conversion Rate):** Indicates actual purchase behavior after recommendation.
+- **Session Time / Dwell Time:** Tracks how engaging the platform becomes.
+- **Latency (<200ms):** Critical for user experience in real-time recommendation.
+- **System Throughput (≥50 QPS):** Supports production-ready scaling during peak traffic.
+
+In summary, our system transforms static, one-size-fits-all recommendation mechanisms into a **scalable, responsive, and personalized recommendation engine**, directly enhancing **user engagement and platform revenue** for major e-commerce platforms.
 
 ### Contributors
 
@@ -22,10 +73,9 @@ link to their contributions in all repos here. -->
 | Name                            | Responsible for | Link to their commits in this repo |
 |---------------------------------|-----------------|------------------------------------|
 | All team members                |                 |                                    |
-| Team member 1                   |                 |                                    |
-| Team member 2                   |                 |                                    |
-| Team member 3                   |                 |                                    |
-| Team member 4 (if there is one) |                 |                                    |
+| Ziqiao Zhu                      |Data pipeline    |                                    |
+| Ziqi Wang                       |Model training   |                                    |
+| Chenye Wu                       |Model serving    |                                    |
 
 
 
@@ -34,6 +84,46 @@ link to their contributions in all repos here. -->
 <!-- Overall digram of system. Doesn't need polish, does need to show all the pieces. 
 Must include: all the hardware, all the containers/software platforms, all the models, 
 all the data. -->
+                     +----------------------+
+                     |    Chameleon Cloud   |
+                     +----------------------+
+                               |
+           +-------------------+-------------------+
+           |                   |                   |
+       [GPU Node]         [CPU Node]         [Storage Volume]
+           |                   |                   |
+      +----------+       +------------+    +--------------------+
+      |   Ray    |       |  FastAPI   |    |  Persistent Volume |
+      |  Cluster |       |   Server   |    |  (model/data/artifacts)
+      +----------+       +------------+    +--------------------+
+      |          |               |                     
+      |   +---------------------v------------------+      
+      |   |    Multi-Stage Recommendation Models   |      
+      |   |   (LightGCN ➝ DIN ➝ RankNet cascade)   |      
+      |   +---------------------+------------------+      
+      |                         |                         
++-------------+         +----------------+               
+| Amazon Books|         |     Redis      |<----+         
+|  Dataset    |         | (User Profile, |     |         
+| (Offline)   |         |  Cached Result)|     |         
++------+------+\        +--------+-------+     |         
+       |       \                ^             |         
+       v        \               |             |         
++----------------+      +--------------+      |         
+|   ETL Pipeline  |<--->| Spark Stream |<-----+         
+|  (Pandas Clean) |      | Kafka Consumer      |         
++----------------+      +--------------+               
+       |                        ^                       
+       v                        |                       
++---------------+     +--------------------+            
+| cleaned_books |<--->|   Kafka Producer   |            
+|.csv (for both |     | (Replay Controller)|            
+| training + sim)|     +--------------------+            
++----------------+          ↑       ↑                   
+                           Drag   Auto-play             
+                        [Time Slider UI] (Frontend)
+
+
 
 ### Summary of outside materials
 
@@ -41,12 +131,15 @@ all the data. -->
 Name of data/model, conditions under which it was created (ideally with links/references), 
 conditions under which it may be used. -->
 
-|              | How it was created | Conditions of use |
-|--------------|--------------------|-------------------|
-| Data set 1   |                    |                   |
-| Data set 2   |                    |                   |
-| Base model 1 |                    |                   |
-| etc          |                    |                   |
+| Name          | How it was created | Conditions of use |
+|---------------|--------------------|-------------------|
+| **Amazon Reviews Dataset (Books, 5-core)** | Collected and released by **Nicolas Hug**, maintained by Amazon for academic research. It includes ≥5 reviews per user/item, covering ratings, timestamps, and user IDs. [Link](https://nijianmo.github.io/amazon/index.html) | Publicly released for **non-commercial academic use** only. Refer to [data license terms](https://nijianmo.github.io/amazon/index.html). |
+| **LightGCN**  | Proposed by Xiangnan He et al. in *KDD 2020*, designed for collaborative filtering on user–item graphs by removing unnecessary components from GCNs. [Paper](https://arxiv.org/abs/2002.02126) | Open-source under **MIT License** via [GitHub repo](https://github.com/gusye1234/LightGCN-PyTorch). |
+| **DIN (Deep Interest Network)** | Published by Alibaba in *KDD 2018*, uses attention mechanism to capture relevant user behavior sequences. [Paper](https://arxiv.org/abs/1706.06978) | Open-source for **academic and research use** under Alibaba's usage terms. Implementations available on GitHub. |
+| **RankNet**   | Developed by Microsoft Research for learning-to-rank with neural networks using pairwise loss. [Paper](https://www.microsoft.com/en-us/research/publication/learning-to-rank-using-gradient-descent/) | No official open-source release, but academic usage allowed; implemented in various open-source libraries (e.g., LightGBM). |
+| **MLflow**    | Created by Databricks, open-source platform for experiment tracking and model versioning. [Website](https://mlflow.org) | Released under **Apache 2.0 License** – free for research and production use. |
+| **Ray Train** | Developed by Anyscale as part of the Ray ecosystem for scalable distributed training. [Docs](https://docs.ray.io/en/latest/train/index.html) | Released under **Apache 2.0 License** – free for commercial and academic use. |
+
 
 
 ### Summary of infrastructure requirements
@@ -363,6 +456,138 @@ Our model monitoring strategy ensures that our deployed recommendation system re
 
 <!-- Make sure to clarify how you will satisfy the Unit 8 requirements,  and which 
 optional "difficulty" points you are attempting. -->
+
+Our project implements both offline and online data pipelines to simulate and demonstrate a real-time recommendation system.
+
+---
+
+### 1. Persistent Storage
+
+- **Strategy:**
+  We provision a persistent volume on Chameleon Cloud to store all essential artifacts not tracked by Git.
+
+- **Diagram Mapping:**
+  Storage is mounted to both the model training and the online serving components.
+
+- **Details:**
+  - Raw and cleaned Amazon Review data
+  - Trained model checkpoints
+  - Feature vectors (user/item embeddings)
+  - Cached recommendation results
+
+- **Justification:**
+  Fulfills the requirement for long-term, retrainable, reproducible model development and data reuse.
+
+---
+
+### 2. Offline Data Management
+
+- **Strategy:**
+  Use Amazon Review (Books, 5-core) dataset for training. Clean, filter, and structure the dataset.
+
+- **Details:**
+  - Apply rating threshold filtering
+  - Time-range selection
+  - Active user filtering
+
+- **Lecture Link:**
+  Covers offline pre-processing and dataset curation strategies.
+
+- **Output:**
+  Cleaned CSV stored for model training and real-time replay simulation.
+
+---
+
+### 3. ETL Pipelines (Extract-Transform-Load)
+
+- **Strategy:**
+  Build ETL pipeline with Pandas to process the raw Amazon Review dataset.
+
+- **Transformation Steps:**
+  - Extract: Load raw CSV
+  - Transform: Filter by time, rating, and user
+  - Load: Save to intermediate clean format `cleaned_books.csv`
+
+- **Diagram Mapping:**
+  This connects raw data input to both the offline model trainer and streaming simulator.
+
+- **Justification:**
+  Enables structured, repeatable data pre-processing.
+
+---
+
+### 4. Online Data and Simulation
+
+- **Strategy:**
+  Simulate real-time user behavior using Kafka with a replay controller.
+
+- **Implementation:**
+  - Replay script sends timestamped user events to Kafka (`user_behavior` topic)
+  - Events include `user_id`, `item_id`, `action`, `rating`, and `timestamp`
+
+- **Justification:**
+  Mimics real-time interaction for development and testing.
+
+---
+
+### 5. Streaming Processing (Real-Time Inference Pipeline)
+
+- **Strategy:**
+  Use Spark Structured Streaming to consume user behavior from Kafka and update user profiles.
+
+- **Process Steps:**
+  - Read from Kafka with Spark
+  - Parse schema with Structured Streaming
+  - Aggregate user behavior using sliding windows
+  - Construct/update user embeddings or interest vectors
+
+- **Justification:**
+  Captures temporal changes in user preferences in real time.
+
+---
+
+### 6. Real-Time Caching with Redis
+
+- **Strategy:**
+  Cache intermediate and final results to support fast retrieval by the API layer.
+
+- **Storage Targets:**
+  - User interest vectors
+  - Recommendation results
+
+- **Implementation:**
+  - Use Redis with time-based keys
+  - Store per-user data with TTL (time-to-live)
+
+- **Justification:**
+  Guarantees sub-200ms inference response by decoupling model compute and data serving.
+
+---
+
+### 7. Optional Difficulty Points Tackled
+
+- **Time Slider Replay:**
+  - Simulate user behavior with a time slider in frontend
+  - Backend calls replay controller to push events to Kafka
+
+- **Real-Time Visualization Dashboard:**
+  - Plotly Dash or Streamlit visualizes user interest vectors
+  - Update in response to replayed events
+
+- **Replay Microservice:**
+  - Optional FastAPI microservice to expose `/replay`, `/set_speed`, etc.
+
+- **Recommendation Explanation:**
+  - Frontend displays textual explanation: e.g., "Recommended because you clicked X"
+
+- **Prometheus + Grafana Integration:**
+  - Monitor Kafka lag, Redis hits, Spark job time, etc.
+
+- **A/B Testing Setup:**
+  - Redis parameter toggle for switching between recommendation strategies
+
+This pipeline architecture ensures we fulfill **all Unit 8 requirements**, while implementing several **optional difficulty points**. The online-offline hybrid design mirrors industry-grade recommendation pipelines and lays the foundation for continuous retraining, monitoring, and dashboard insights.
+
 
 #### Continuous X (Unit 3)
 
