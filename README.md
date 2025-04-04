@@ -111,12 +111,13 @@ conditions under which it may be used. -->
 how much/when, justification. Include compute, floating IPs, persistent storage. 
 The table below shows an example, it is not a recommendation. -->
 
-| Requirement     | How many/when                                     | Justification |
-|-----------------|---------------------------------------------------|---------------|
-| `m1.medium` VMs | 3 for entire project duration                     | ...           |
-| `gpu_mi100`     | 4 hour block twice a week                         |               |
-| Floating IPs    | 1 for entire project duration, 1 for sporadic use |               |
-| etc             |                                                   |               |
+| Requirement               | How many/when                                                          | Justification                                                                                                                                                   |
+|---------------------------|------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **m1.medium VMs**         | 3 VMs for the full project duration                                    | Dedicated nodes can be used for different responsibilities: one for data ingestion (e.g., consuming streaming data), one for processing/recommendation logic, and one for serving API endpoints. |
+| **GPU Instance**          | 1 instance (e.g., `gpu_mi100`) for a 4‑hour block once daily (or as needed) | Accelerates model training and periodic re‑training tasks, ensuring that the recommendation algorithms can be updated in near real time without long delays.     |
+| **Floating IPs**          | 2 Floating IPs (1 for main production API access, 1 for administrative or maintenance tasks) | Provides reliable external access to the live recommendation service while also allowing safe testing/maintenance without disrupting the primary service.     |
+| **Persistent Storage**    | 100 GB block storage (with redundancy)                                 | Necessary for storing historical data, streaming logs, user interaction records, and model artifacts, ensuring data continuity across VM restarts.             |
+| **Container Orchestration** | 1 Kubernetes cluster (if containerized deployment is preferred)         | Simplifies deployment, scaling, and management of microservices for data ingestion, processing, and API serving, while providing high availability and resilience. |
 
 ### Detailed design plan
 
