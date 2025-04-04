@@ -84,44 +84,7 @@ link to their contributions in all repos here. -->
 <!-- Overall digram of system. Doesn't need polish, does need to show all the pieces. 
 Must include: all the hardware, all the containers/software platforms, all the models, 
 all the data. -->
-                     +----------------------+
-                     |    Chameleon Cloud   |
-                     +----------------------+
-                               |
-           +-------------------+-------------------+
-           |                   |                   |
-       [GPU Node]         [CPU Node]         [Storage Volume]
-           |                   |                   |
-      +----------+       +------------+    +--------------------+
-      |   Ray    |       |  FastAPI   |    |  Persistent Volume |
-      |  Cluster |       |   Server   |    |  (model/data/artifacts)
-      +----------+       +------------+    +--------------------+
-      |          |               |                     
-      |   +---------------------v------------------+      
-      |   |    Multi-Stage Recommendation Models   |      
-      |   |   (LightGCN ➝ DIN ➝ RankNet cascade)   |      
-      |   +---------------------+------------------+      
-      |                         |                         
-+-------------+         +----------------+               
-| Amazon Books|         |     Redis      |<----+         
-|  Dataset    |         | (User Profile, |     |         
-| (Offline)   |         |  Cached Result)|     |         
-+------+------+\        +--------+-------+     |         
-       |       \                ^             |         
-       v        \               |             |         
-+----------------+      +--------------+      |         
-|   ETL Pipeline  |<--->| Spark Stream |<-----+         
-|  (Pandas Clean) |      | Kafka Consumer      |         
-+----------------+      +--------------+               
-       |                        ^                       
-       v                        |                       
-+---------------+     +--------------------+            
-| cleaned_books |<--->|   Kafka Producer   |            
-|.csv (for both |     | (Replay Controller)|            
-| training + sim)|     +--------------------+            
-+----------------+          ↑       ↑                   
-                           Drag   Auto-play             
-                        [Time Slider UI] (Frontend)
+![System Architecture](images/diagram.png)
 
 
 
