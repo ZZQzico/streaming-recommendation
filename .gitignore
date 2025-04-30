@@ -172,3 +172,14 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+#ignore raw data
+raw_data/
+.env
+*.csv
+*.json
+*.pt
+__pycache__/
+.ipynb_checkpoints/
+.mounted_data/

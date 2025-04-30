@@ -1,0 +1,23 @@
+# Base image
+FROM python:3.9-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy app code
+COPY ./data_pipeline/api_service /app/api_service
+COPY ./data_pipeline/kafka_stream /app/kafka_stream
+COPY ./data_pipeline/config /app/config
+COPY ./data_pipeline/metrics.py /app/metrics.py
+COPY .env /app
+
+# Install dependencies
+RUN pip install --no-cache-dir fastapi uvicorn kafka-python python-dotenv redis
+
+# Set working directory to FastAPI entrypoint
+WORKDIR /app/api_service
+
+# Run FastAPI
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+#docker build -f Dockerfile.api_service -t fastapi-server .
