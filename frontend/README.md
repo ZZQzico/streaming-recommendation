@@ -48,13 +48,20 @@ The application will be available at `http://localhost:3000`.
 
 ```
 frontend/
+├── public/
+│   ├── index.html
+│   └── manifest.json
 ├── src/
-│   ├── components/     # React components
-│   ├── services/       # API services
-│   ├── App.js         # Main application component
-│   └── index.js       # Application entry point
-├── public/            # Static files
-└── package.json       # Project dependencies and scripts
+│   ├── components/
+│   │   ├── Header.js
+│   │   └── RecommendationDashboard.js
+│   ├── services/
+│   │   └── api.js
+│   ├── App.js
+│   ├── index.js
+│   └── reportWebVitals.js
+├── .env
+└── package.json
 ```
 
 ## Available Scripts
