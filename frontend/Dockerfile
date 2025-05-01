@@ -5,7 +5,7 @@ WORKDIR /app
 
 # 1) Copy package manifests and install dependencies
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install --production
 
 # 2) Copy source and build
 COPY . .
