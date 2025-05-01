@@ -18,7 +18,7 @@ FROM nginx:1.23-alpine
 RUN rm -rf /usr/share/nginx/html/*
 
 # Copy built assets from builder
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/build /usr/share/nginx/html
 
 # (Optional) If you need custom headers or SPA fallback, you can
 # provide your own nginx.conf under ./nginx.conf and uncomment:
