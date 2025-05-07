@@ -176,10 +176,10 @@ cython_debug/
 
 #ignore raw data
 raw_data/
-.env
 *.csv
 *.json
 *.pt
 __pycache__/
 .ipynb_checkpoints/
 .mounted_data/
+*.zip

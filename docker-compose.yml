@@ -16,11 +16,18 @@ services:
       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
       - KAFKA_KRAFT_CLUSTER_ID=kraft-cluster
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   kafka-init:
     image: bitnami/kafka:latest
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
     entrypoint: ["/bin/bash", "-c"]
     command:
       - |
@@ -50,8 +57,12 @@ services:
     environment:
       - ENV_FILE=/app/.env
     depends_on:
-      - kafka-init
-      - redis
+      kafka-init:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   spark:
     build:
@@ -64,5 +75,9 @@ services:
     environment:
       - ENV_FILE=/app/.env
     depends_on:
-      - kafka-init
-      - redis
+      kafka-init:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_started
