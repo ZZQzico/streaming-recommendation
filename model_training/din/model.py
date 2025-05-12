@@ -4,78 +4,78 @@ import torch.nn.functional as F
 
 class Attention(nn.Module):
     """
-    注意力层实现
-    用于计算用户历史物品与候选物品的相关性权重
+    Attention layer implementation
+    Used to calculate relevance weights between user history items and candidate item
     """
     def __init__(self, embedding_dim, attention_size):
         super(Attention, self).__init__()
         self.embedding_dim = embedding_dim
         self.attention_size = attention_size
         
-        # 注意力网络参数
+        # Attention network parameters
         self.w_query = nn.Linear(embedding_dim, attention_size, bias=False)
         self.w_key = nn.Linear(embedding_dim, attention_size, bias=False)
         self.w_value = nn.Linear(attention_size, 1, bias=False)
         
     def forward(self, queries, keys, keys_length):
         """
-        计算注意力权重并返回加权后的表示
+        Calculate attention weights and return weighted representation
         
-        参数:
-            queries: 候选物品嵌入向量 [batch_size, embedding_dim]
-            keys: 历史物品嵌入向量序列 [batch_size, max_seq_len, embedding_dim]
-            keys_length: 每个用户的历史序列实际长度 [batch_size]
+        Parameters:
+            queries: Candidate item embedding vectors [batch_size, embedding_dim]
+            keys: Historical item embedding vectors sequence [batch_size, max_seq_len, embedding_dim]
+            keys_length: Actual length of history sequence for each user [batch_size]
         
-        返回:
-            output: 注意力加权后的用户兴趣表示 [batch_size, embedding_dim]
-            attention_weights: 注意力权重 [batch_size, max_seq_len]
+        Returns:
+            output: Attention-weighted user interest representation [batch_size, embedding_dim]
+            attention_weights: Attention weights [batch_size, max_seq_len]
         """
         batch_size, max_seq_len = keys.size(0), keys.size(1)
         
-        # 扩展queries以匹配keys的维度
+        # Expand queries to match keys dimensions
         queries = queries.unsqueeze(1).expand(-1, max_seq_len, -1)  # [batch_size, max_seq_len, embedding_dim]
         
-        # 计算注意力得分
+        # Calculate attention scores
         queries_hidden = self.w_query(queries)  # [batch_size, max_seq_len, attention_size]
         keys_hidden = self.w_key(keys)  # [batch_size, max_seq_len, attention_size]
         
-        # 激活
+        # Activation
         hidden = F.relu(queries_hidden + keys_hidden)  # [batch_size, max_seq_len, attention_size]
         
-        # 计算注意力权重
+        # Calculate attention weights
         attention_scores = self.w_value(hidden).squeeze(-1)  # [batch_size, max_seq_len]
         
-        # 创建掩码，将无效的历史物品位置设为极小值
+        # Create mask, set invalid history item positions to a very small value
         mask = torch.arange(max_seq_len, device=keys_length.device).unsqueeze(0).expand(batch_size, -1)
         mask = mask < keys_length.unsqueeze(-1)
         attention_scores = attention_scores.masked_fill(~mask, -1e9)
         
-        # 应用softmax得到权重
+        # Apply softmax to get weights
         attention_weights = F.softmax(attention_scores, dim=1)  # [batch_size, max_seq_len]
         
-        # 用权重对历史物品嵌入向量加权求和
+        # Use weights to calculate weighted sum of history item embedding vectors
         output = torch.bmm(attention_weights.unsqueeze(1), keys).squeeze(1)  # [batch_size, embedding_dim]
         
         return output, attention_weights
 
 class DIN(nn.Module):
     """
-    Deep Interest Network模型实现
-    使用注意力机制捕获用户的动态兴趣
+    Deep Interest Network model implementation
+    Using attention mechanism to capture user's dynamic interest
     """
     def __init__(self, item_feat_dim, embedding_dim=64, attention_dim=64, mlp_hidden_dims=[128, 64, 32], dropout=0.2):
         super(DIN, self).__init__()
         self.embedding_dim = embedding_dim
         
-        # 物品嵌入层
+        # Item embedding layer
         self.item_embedding = nn.Linear(item_feat_dim, embedding_dim)
         
-        # 注意力层
+        # Attention layer
         self.attention = Attention(embedding_dim, attention_dim)
         
-        # MLP层
+        # MLP layers
         mlp_layers = []
-        input_dim = embedding_dim * 3  # 用户兴趣向量 + 候选物品向量 + 历史物品序列平均
+        input_dim = embedding_dim * 3  # User interest vector + Candidate item vector + History item sequence average
         
         for hidden_dim in mlp_hidden_dims:
             mlp_layers.append(nn.Linear(input_dim, hidden_dim))
@@ -90,56 +90,56 @@ class DIN(nn.Module):
         
     def forward(self, candidate_features, history_features, history_length):
         """
-        前向传播函数
+        Forward propagation function
         
-        参数:
-            candidate_features: 候选物品特征 [batch_size, item_feat_dim]
-            history_features: 历史物品特征序列 [batch_size, max_seq_len, item_feat_dim]
-            history_length: 每个用户的历史序列实际长度 [batch_size]
+        Parameters:
+            candidate_features: Candidate item features [batch_size, item_feat_dim]
+            history_features: Historical item feature sequence [batch_size, max_seq_len, item_feat_dim]
+            history_length: Actual history sequence length for each user [batch_size]
         
-        返回:
-            logits: 预测得分 [batch_size, 1]
+        Returns:
+            logits: Prediction scores [batch_size, 1]
         """
         batch_size, max_seq_len = history_features.size(0), history_features.size(1)
         
-        # 将原始特征转换为嵌入向量
+        # Convert raw features to embedding vectors
         candidate_emb = self.item_embedding(candidate_features)  # [batch_size, embedding_dim]
         
-        # 处理历史物品特征
+        # Process history item features
         history_emb = self.item_embedding(history_features.view(-1, history_features.size(-1)))
         history_emb = history_emb.view(batch_size, max_seq_len, -1)  # [batch_size, max_seq_len, embedding_dim]
         
-        # 计算注意力加权的用户兴趣表示
+        # Calculate attention-weighted user interest representation
         interest_emb, attention_weights = self.attention(candidate_emb, history_emb, history_length)
         
-        # 计算历史物品的平均向量作为额外特征
+        # Calculate average vector of history items as additional feature
         mask = torch.arange(max_seq_len, device=history_length.device).unsqueeze(0) < history_length.unsqueeze(1)
         mask = mask.unsqueeze(-1).expand(-1, -1, self.embedding_dim).float()
         avg_history_emb = (history_emb * mask).sum(dim=1) / history_length.unsqueeze(-1).float()
         
-        # 拼接特征
+        # Concatenate features
         concat_features = torch.cat([interest_emb, candidate_emb, avg_history_emb], dim=1)
         
-        # 通过MLP层
+        # Through MLP layers
         mlp_output = self.mlp(concat_features)
         
-        # 输出层
+        # Output layer
         logits = self.output_layer(mlp_output)
         
         return self.sigmoid(logits).squeeze(-1)
     
     def calculate_loss(self, candidate_features, history_features, history_length, labels):
         """
-        计算二分类交叉熵损失
+        Calculate binary cross entropy loss
         
-        参数:
-            candidate_features: 候选物品特征 [batch_size, item_feat_dim]
-            history_features: 历史物品特征序列 [batch_size, max_seq_len, item_feat_dim]
-            history_length: 每个用户的历史序列实际长度 [batch_size]
-            labels: 真实标签 [batch_size]
+        Parameters:
+            candidate_features: Candidate item features [batch_size, item_feat_dim]
+            history_features: Historical item feature sequence [batch_size, max_seq_len, item_feat_dim]
+            history_length: Actual history sequence length for each user [batch_size]
+            labels: Ground truth labels [batch_size]
             
-        返回:
-            loss: 交叉熵损失
+        Returns:
+            loss: Cross entropy loss
         """
         pred = self.forward(candidate_features, history_features, history_length)
         loss = F.binary_cross_entropy(pred, labels.float())

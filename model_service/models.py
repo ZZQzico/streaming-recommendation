@@ -5,7 +5,7 @@ import numpy as np
 import logging
 from pathlib import Path
 
-# LightGCN模型类
+# LightGCN Model Class
 class LightGCNModel:
     def __init__(self):
         self.model_path = Path("/app/model_output/lightgcn/best_model.pth")
@@ -14,80 +14,80 @@ class LightGCNModel:
         self.model = None
         self.user_embeddings = None
         self.item_embeddings = None
-        self.item_id_map = {}  # item_id到索引的映射
+        self.item_id_map = {}  # Mapping from item_id to index
         self.loaded = False
         
     def load(self):
         try:
-            # 读取物品嵌入向量
+            # Read item embedding vectors
             item_emb_df = pd.read_csv(self.item_embeddings_path)
             self.item_embeddings = torch.tensor(item_emb_df.iloc[:, 1:].values, dtype=torch.float32)
             
-            # 创建item_id到索引的映射
+            # Create mapping from item_id to index
             for i, item_id in enumerate(item_emb_df.iloc[:, 0].values):
                 self.item_id_map[item_id] = i
                 
-            # 读取用户嵌入向量
+            # Read user embedding vectors
             user_emb_df = pd.read_csv(self.user_embeddings_path)
             self.user_embeddings = torch.tensor(user_emb_df.iloc[:, 1:].values, dtype=torch.float32)
             
-            # 创建用户ID到索引的映射
+            # Create mapping from user_id to index
             self.user_id_map = {user_id: i for i, user_id in enumerate(user_emb_df.iloc[:, 0].values)}
             
             self.loaded = True
-            logging.info("LightGCN模型加载成功")
+            logging.info("LightGCN model loaded successfully")
         except Exception as e:
-            logging.error(f"LightGCN模型加载失败: {str(e)}")
+            logging.error(f"Failed to load LightGCN model: {str(e)}")
     
     def recall(self, user_id, history_items, top_k=100):
         if not self.loaded:
             self.load()
             
-        # 如果用户ID在我们的训练数据中
+        # If user ID is in our training data
         if user_id in self.user_id_map:
             user_idx = self.user_id_map[user_id]
             user_embedding = self.user_embeddings[user_idx]
             
-            # 计算用户嵌入与所有物品嵌入的相似度
+            # Calculate similarity between user embedding and all item embeddings
             scores = torch.matmul(user_embedding, self.item_embeddings.T)
             
-            # 获取TopK物品索引
+            # Get TopK item indices
             _, indices = torch.topk(scores, k=min(top_k*2, len(scores)))
             
-            # 转换为物品ID
+            # Convert to item IDs
             item_ids = [list(self.item_id_map.keys())[idx] for idx in indices.numpy()]
             
-            # 过滤掉历史物品
+            # Filter out historical items
             item_ids = [item_id for item_id in item_ids if item_id not in history_items][:top_k]
             
             return item_ids
         else:
-            # 如果用户不在训练数据中，使用冷启动策略
-            # 1. 计算历史物品的平均嵌入
+            # If user is not in training data, use cold start strategy
+            # 1. Calculate average embedding of historical items
             if history_items:
                 history_indices = [self.item_id_map[item] for item in history_items if item in self.item_id_map]
                 if history_indices:
                     history_embeddings = self.item_embeddings[history_indices]
                     avg_embedding = torch.mean(history_embeddings, dim=0)
                     
-                    # 计算平均嵌入与所有物品的相似度
+                    # Calculate similarity between average embedding and all items
                     scores = torch.matmul(avg_embedding, self.item_embeddings.T)
                     
-                    # 获取TopK物品索引
+                    # Get TopK item indices
                     _, indices = torch.topk(scores, k=min(top_k*2, len(scores)))
                     
-                    # 转换为物品ID
+                    # Convert to item IDs
                     item_ids = [list(self.item_id_map.keys())[idx] for idx in indices.numpy()]
                     
-                    # 过滤掉历史物品
+                    # Filter out historical items
                     item_ids = [item_id for item_id in item_ids if item_id not in history_items][:top_k]
                     
                     return item_ids
             
-            # 如果没有历史物品或无法处理，返回热门物品
+            # If no historical items or cannot process, return popular items
             return list(self.item_id_map.keys())[:top_k]
 
-# DIN模型类
+# DIN Model Class
 class DINModel:
     def __init__(self):
         self.model_path = Path("/app/model_output/din/best_model.pth")
@@ -96,43 +96,43 @@ class DINModel:
         
     def load(self):
         try:
-            # 加载模型状态字典而不是直接加载模型
+            # Load model state dictionary instead of direct model loading
             checkpoint = torch.load(self.model_path, map_location=torch.device('cpu'))
             
-            # 检查是否包含state_dict
+            # Check if includes state_dict
             if 'state_dict' in checkpoint:
-                # 假设模型已经在其他地方定义，这里只是一个简化的处理
-                # 实际情况下应该先初始化模型结构然后加载state_dict
+                # Assume the model is defined elsewhere, this is a simplified handling
+                # In actual implementation, we should initialize model structure first then load state_dict
                 self.model = checkpoint
                 self.loaded = True
-                logging.info("DIN模型状态字典加载成功")
+                logging.info("DIN model state dictionary loaded successfully")
             else:
-                # 如果不是state_dict格式，尝试直接使用
+                # If not state_dict format, try to use directly
                 self.model = checkpoint
                 self.loaded = True
-                logging.info("DIN模型加载成功")
+                logging.info("DIN model loaded successfully")
         except Exception as e:
-            logging.error(f"DIN模型加载失败: {str(e)}")
+            logging.error(f"Failed to load DIN model: {str(e)}")
     
     def rank(self, user_id, history_items, candidate_items, top_k=50):
         if not self.loaded:
             self.load()
             
         if not self.loaded or not self.model:
-            # 如果模型加载失败，直接返回候选物品
+            # If model loading failed, return candidate items directly
             return candidate_items[:top_k]
         
         try:
-            # 简化实现：为每个候选物品分配随机分数，然后排序
-            # 实际实现中，这里应该基于模型进行真实预测
+            # Simplified implementation: assign random scores to each candidate item, then sort
+            # In actual implementation, this should be real prediction based on the model
             scores = np.random.random(len(candidate_items))
             sorted_items = [x for _, x in sorted(zip(scores, candidate_items), reverse=True)]
             return sorted_items[:top_k]
         except Exception as e:
-            logging.error(f"DIN模型预测失败: {str(e)}")
+            logging.error(f"DIN model prediction failed: {str(e)}")
             return candidate_items[:top_k]
 
-# RankNet模型类
+# RankNet Model Class
 class RankNetModel:
     def __init__(self):
         self.model_path = Path("/app/model_output/ranknet/best_model.pth")
@@ -141,43 +141,43 @@ class RankNetModel:
         
     def load(self):
         try:
-            # 加载模型状态字典而不是直接加载模型
+            # Load model state dictionary instead of direct model loading
             checkpoint = torch.load(self.model_path, map_location=torch.device('cpu'))
             
-            # 检查是否包含state_dict
+            # Check if includes state_dict
             if 'state_dict' in checkpoint:
-                # 假设模型已经在其他地方定义，这里只是一个简化的处理
-                # 实际情况下应该先初始化模型结构然后加载state_dict
+                # Assume the model is defined elsewhere, this is a simplified handling
+                # In actual implementation, we should initialize model structure first then load state_dict
                 self.model = checkpoint
                 self.loaded = True
-                logging.info("RankNet模型状态字典加载成功")
+                logging.info("RankNet model state dictionary loaded successfully")
             else:
-                # 如果不是state_dict格式，尝试直接使用
+                # If not state_dict format, try to use directly
                 self.model = checkpoint
                 self.loaded = True
-                logging.info("RankNet模型加载成功")
+                logging.info("RankNet model loaded successfully")
         except Exception as e:
-            logging.error(f"RankNet模型加载失败: {str(e)}")
+            logging.error(f"Failed to load RankNet model: {str(e)}")
     
     def rerank(self, user_id, history_items, ranked_items, top_k=20):
         if not self.loaded:
             self.load()
             
         if not self.loaded or not self.model:
-            # 如果模型加载失败，直接返回输入的物品
+            # If model loading failed, return input items directly
             return ranked_items[:top_k]
         
         try:
-            # 简化实现：为每个候选物品分配随机分数，然后排序
-            # 实际实现中，这里应该基于模型进行真实预测
+            # Simplified implementation: assign random scores to each candidate item, then sort
+            # In actual implementation, this should be real prediction based on the model
             scores = np.random.random(len(ranked_items))
             reranked_items = [x for _, x in sorted(zip(scores, ranked_items), reverse=True)]
             return reranked_items[:top_k]
         except Exception as e:
-            logging.error(f"RankNet模型预测失败: {str(e)}")
+            logging.error(f"RankNet model prediction failed: {str(e)}")
             return ranked_items[:top_k]
 
-# 推荐系统整合类
+# Recommendation System Integration Class
 class RecommendationModel:
     def __init__(self):
         self.lightgcn = LightGCNModel()
@@ -190,7 +190,7 @@ class RecommendationModel:
         self.din.load()
         self.ranknet.load()
         self.ready = True
-        logging.info("所有模型加载完成")
+        logging.info("All models loaded successfully")
         
     def is_ready(self):
         return self.ready
@@ -199,14 +199,14 @@ class RecommendationModel:
         if not self.ready:
             self.load_models()
             
-        # 多阶段推荐流程
-        # 1. 召回阶段：使用LightGCN模型召回候选物品
+        # Multi-stage recommendation process
+        # 1. Recall stage: use LightGCN model to recall candidate items
         recall_candidates = self.lightgcn.recall(user_id, history_items, top_k=100)
         
-        # 2. 粗排阶段：使用DIN模型对候选物品进行排序
+        # 2. Rough ranking stage: use DIN model to rank candidate items
         ranked_candidates = self.din.rank(user_id, history_items, recall_candidates, top_k=50)
         
-        # 3. 精排阶段：使用RankNet模型对排序结果进行重排
+        # 3. Fine ranking stage: use RankNet model to rerank the results
         final_recommendations = self.ranknet.rerank(user_id, history_items, ranked_candidates, top_k=top_k)
         
         return final_recommendations 

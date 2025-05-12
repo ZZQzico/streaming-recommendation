@@ -10,30 +10,30 @@ from tqdm import tqdm
 
 class DINDataset(Dataset):
     """
-    DIN模型数据集
-    处理用户历史物品序列和候选物品
+    DIN model dataset
+    Processes user history item sequences and candidate items
     """
     def __init__(self, interactions, item_features, max_seq_len=50):
         """
-        初始化数据集
+        Initialize dataset
         
-        参数:
-            interactions: 交互数据，包含用户历史和候选物品
-            item_features: 物品特征数据
-            max_seq_len: 历史序列最大长度
+        Parameters:
+            interactions: Interaction data, including user history and candidate items
+            item_features: Item feature data
+            max_seq_len: Maximum length of history sequence
         """
         self.interactions = interactions
         self.item_features = item_features
         self.max_seq_len = max_seq_len
         
-        # 物品特征维度
-        self.item_feat_dim = len(self.item_features.columns) - 1  # 减去item_id列
+        # Item feature dimension
+        self.item_feat_dim = len(self.item_features.columns) - 1  # Remove item_id column
         
-        # 创建物品ID到特征的映射
+        # Create item ID to feature mapping
         self.item_features_dict = self._create_item_features_dict()
         
     def _create_item_features_dict(self):
-        """创建物品ID到特征向量的映射"""
+        """Create mapping from item ID to feature vector"""
         item_features_dict = {}
         
         for _, row in self.item_features.iterrows():
@@ -41,46 +41,46 @@ class DINDataset(Dataset):
             features = row.drop('item_id').values.astype(np.float32)
             item_features_dict[item_id] = features
             
-        # 创建一个默认特征向量用于未知物品
+        # Create a default feature vector for unknown items
         default_features = np.zeros(self.item_feat_dim, dtype=np.float32)
         item_features_dict['UNK'] = default_features
         
         return item_features_dict
     
     def __len__(self):
-        """返回数据集大小"""
+        """Return dataset size"""
         return len(self.interactions)
     
     def __getitem__(self, idx):
-        """获取单个样本"""
+        """Get a single sample"""
         interaction = self.interactions.iloc[idx]
         
-        # 提取用户ID、候选物品ID和标签
+        # Extract user ID, candidate item ID and label
         user_id = interaction['user_id']
         candidate_item = interaction['candidate_item']
         label = interaction['label']
         
-        # 获取历史物品列表
+        # Get history item list
         if pd.notna(interaction['history_items']) and interaction['history_items']:
             history_items = interaction['history_items'].split('|')
         else:
             history_items = []
         
-        # 截断或填充历史序列至max_seq_len
+        # Truncate or pad history sequence to max_seq_len
         if len(history_items) > self.max_seq_len:
-            # 保留最近的max_seq_len个物品
+            # Keep the most recent max_seq_len items
             history_items = history_items[-self.max_seq_len:]
         
-        # 历史序列实际长度
+        # Actual length of history sequence
         history_length = len(history_items)
         
-        # 填充历史序列至max_seq_len
+        # Pad history sequence to max_seq_len
         history_items = history_items + ['UNK'] * (self.max_seq_len - len(history_items))
         
-        # 获取候选物品特征
+        # Get candidate item features
         candidate_features = self._get_item_features(candidate_item)
         
-        # 获取历史物品特征
+        # Get history item features
         history_features = np.array([self._get_item_features(item) for item in history_items])
         
         return {
@@ -92,7 +92,7 @@ class DINDataset(Dataset):
         }
     
     def _get_item_features(self, item_id):
-        """获取物品特征向量"""
+        """Get item feature vector"""
         if item_id in self.item_features_dict:
             return self.item_features_dict[item_id]
         else:
@@ -100,69 +100,69 @@ class DINDataset(Dataset):
 
 def load_data(train_data_path, item_embeddings_path, test_size=0.2, random_state=42, max_samples=None):
     """
-    加载并处理DIN模型训练数据
+    Load and process DIN model training data
     
-    参数:
-        train_data_path: 训练数据路径
-        item_embeddings_path: 物品特征数据路径
-        test_size: 验证集比例
-        random_state: 随机种子
-        max_samples: 最大样本数量，用于调试
+    Parameters:
+        train_data_path: Training data path
+        item_embeddings_path: Item feature data path
+        test_size: Validation set ratio
+        random_state: Random seed
+        max_samples: Maximum sample count, for debugging
         
-    返回:
-        train_dataset: 训练数据集
-        valid_dataset: 验证数据集
-        item_feat_dim: 物品特征维度
+    Returns:
+        train_dataset: Training dataset
+        valid_dataset: Validation dataset
+        item_feat_dim: Item feature dimension
     """
-    print(f"加载训练数据: {train_data_path}")
+    print(f"Loading training data: {train_data_path}")
     
-    # 加载交互数据
+    # Load interaction data
     interactions = pd.read_csv(train_data_path)
     
-    # 限制样本数量（用于调试）
+    # Limit sample count (for debugging)
     if max_samples and max_samples > 0:
         interactions = interactions.sample(min(max_samples, len(interactions)), random_state=random_state)
     
-    print(f"交互数据大小: {len(interactions)}")
+    print(f"Interaction data size: {len(interactions)}")
     
-    # 提取交互数据中涉及到的所有物品ID
-    print("提取需要的物品ID...")
+    # Extract all item IDs involved in interaction data
+    print("Extracting required item IDs...")
     candidate_items = set(interactions['candidate_item'].unique())
     
-    # 处理历史物品列表
+    # Process history item lists
     history_items = set()
-    for hist in tqdm(interactions['history_items'].dropna(), desc="处理历史物品"):
+    for hist in tqdm(interactions['history_items'].dropna(), desc="Processing history items"):
         if isinstance(hist, str) and hist:
             items = hist.split('|')
             history_items.update(items)
     
-    # 合并所有需要的物品ID
+    # Merge all needed item IDs
     needed_items = candidate_items.union(history_items)
-    print(f"需要加载的物品特征数量: {len(needed_items)}")
+    print(f"Number of item features to load: {len(needed_items)}")
     
-    # 加载物品特征
-    print(f"加载物品特征: {item_embeddings_path}")
+    # Load item features
+    print(f"Loading item features: {item_embeddings_path}")
     
-    # 使用分块读取和过滤，避免一次性加载全部数据
-    chunk_size = 500000  # 每次读取的行数
+    # Use chunked reading and filtering to avoid loading all data at once
+    chunk_size = 500000  # Number of rows to read each time
     filtered_items = []
     
-    print("分块读取物品特征...")
-    for chunk in tqdm(pd.read_csv(item_embeddings_path, chunksize=chunk_size), desc="过滤物品特征"):
-        # 只保留需要的物品
+    print("Reading item features in chunks...")
+    for chunk in tqdm(pd.read_csv(item_embeddings_path, chunksize=chunk_size), desc="Filtering item features"):
+        # Only keep needed items
         filtered_chunk = chunk[chunk['item_id'].isin(needed_items)]
         filtered_items.append(filtered_chunk)
         
-        # 如果已经找到全部需要的物品，可以提前退出
+        # If all needed items have been found, exit early
         if len(filtered_items) > 0 and len(pd.concat(filtered_items)['item_id'].unique()) >= len(needed_items):
             break
     
-    # 合并所有过滤后的数据块
+    # Merge all filtered data chunks
     item_features = pd.concat(filtered_items, ignore_index=True)
     
-    # 添加UNK物品
+    # Add UNK item
     if 'UNK' not in item_features['item_id'].values:
-        # 创建UNK物品特征（全为0）
+        # Create UNK item features (all zeros)
         unk_features = pd.DataFrame({
             'item_id': ['UNK'],
             'category_hash': [0.0],
@@ -171,19 +171,19 @@ def load_data(train_data_path, item_embeddings_path, test_size=0.2, random_state
         })
         item_features = pd.concat([item_features, unk_features], ignore_index=True)
     
-    print(f"过滤后的物品特征数据大小: {len(item_features)}")
+    print(f"Filtered item feature data size: {len(item_features)}")
     
-    # 物品特征维度
-    item_feat_dim = len(item_features.columns) - 1  # 减去item_id列
+    # Item feature dimension
+    item_feat_dim = len(item_features.columns) - 1  # Remove item_id column
     
-    # 划分训练集和验证集
+    # Split training and validation sets
     train_interactions, valid_interactions = train_test_split(
         interactions, test_size=test_size, random_state=random_state
     )
     
-    print(f"训练集大小: {len(train_interactions)}, 验证集大小: {len(valid_interactions)}")
+    print(f"Training set size: {len(train_interactions)}, Validation set size: {len(valid_interactions)}")
     
-    # 创建数据集
+    # Create datasets
     train_dataset = DINDataset(train_interactions, item_features)
     valid_dataset = DINDataset(valid_interactions, item_features)
     
@@ -191,13 +191,13 @@ def load_data(train_data_path, item_embeddings_path, test_size=0.2, random_state
 
 def collate_fn(batch):
     """
-    数据批次整理函数
+    Data batch processing function
     
-    参数:
-        batch: 批次数据
+    Parameters:
+        batch: Batch data
         
-    返回:
-        整理后的批次数据
+    Returns:
+        Processed batch data
     """
     user_ids = [item['user_id'] for item in batch]
     candidate_features = np.array([item['candidate_features'] for item in batch])
@@ -215,17 +215,17 @@ def collate_fn(batch):
 
 def create_data_loaders(train_dataset, valid_dataset, batch_size, num_workers=4):
     """
-    创建数据加载器
+    Create data loaders
     
-    参数:
-        train_dataset: 训练数据集
-        valid_dataset: 验证数据集
-        batch_size: 批次大小
-        num_workers: 工作线程数
+    Parameters:
+        train_dataset: Training dataset
+        valid_dataset: Validation dataset
+        batch_size: Batch size
+        num_workers: Number of worker threads
         
-    返回:
-        train_loader: 训练数据加载器
-        valid_loader: 验证数据加载器
+    Returns:
+        train_loader: Training data loader
+        valid_loader: Validation data loader
     """
     train_loader = DataLoader(
         train_dataset,
@@ -249,15 +249,15 @@ def create_data_loaders(train_dataset, valid_dataset, batch_size, num_workers=4)
 
 def evaluate_model(model, data_loader, device):
     """
-    评估模型性能
+    Evaluate model performance
     
-    参数:
-        model: DIN模型
-        data_loader: 数据加载器
-        device: 计算设备
+    Parameters:
+        model: DIN model
+        data_loader: Data loader
+        device: Computation device
         
-    返回:
-        metrics: 评估指标字典
+    Returns:
+        metrics: Evaluation metrics dictionary
     """
     model.eval()
     total_loss = 0
@@ -271,39 +271,39 @@ def evaluate_model(model, data_loader, device):
             history_lengths = batch['history_lengths'].to(device)
             labels = batch['labels'].to(device)
             
-            # 前向传播
+            # Forward propagation
             preds = model(candidate_features, history_features, history_lengths)
             
-            # 计算损失
+            # Calculate loss
             loss = model.calculate_loss(candidate_features, history_features, history_lengths, labels)
             total_loss += loss.item() * len(labels)
             
-            # 收集预测和标签
+            # Collect predictions and labels
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(labels.cpu().numpy())
     
-    # 计算评估指标
+    # Calculate evaluation metrics
     from sklearn.metrics import roc_auc_score, log_loss, accuracy_score
     
     all_preds = np.array(all_preds)
     all_labels = np.array(all_labels)
     
-    # 二分类阈值
+    # Binary classification threshold
     binary_preds = (all_preds >= 0.5).astype(int)
     
-    # 计算AUC
+    # Calculate AUC
     try:
         auc = roc_auc_score(all_labels, all_preds)
     except:
-        auc = 0.5  # 如果所有标签都是同一个类，AUC计算会出错
+        auc = 0.5  # If all labels are the same class, AUC calculation will error
     
-    # 计算Log Loss
+    # Calculate Log Loss
     logloss = log_loss(all_labels, all_preds)
     
-    # 计算准确率
+    # Calculate accuracy
     accuracy = accuracy_score(all_labels, binary_preds)
     
-    # 计算平均损失
+    # Calculate average loss
     avg_loss = total_loss / len(all_labels)
     
     metrics = {
@@ -317,19 +317,19 @@ def evaluate_model(model, data_loader, device):
 
 def create_mlflow_experiment(experiment_name, tracking_uri=None):
     """
-    创建或获取MLflow实验
+    Create or get MLflow experiment
     
-    参数:
-        experiment_name: 实验名称
-        tracking_uri: MLflow跟踪服务器地址
+    Parameters:
+        experiment_name: Experiment name
+        tracking_uri: MLflow tracking server address
         
-    返回:
-        experiment_id: 实验ID
+    Returns:
+        experiment_id: Experiment ID
     """
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)
     
-    # 获取或创建实验
+    # Get or create experiment
     experiment = mlflow.get_experiment_by_name(experiment_name)
     if experiment:
         experiment_id = experiment.experiment_id
@@ -340,15 +340,15 @@ def create_mlflow_experiment(experiment_name, tracking_uri=None):
 
 def save_model(model, save_path):
     """
-    保存模型及其配置
+    Save model and its configuration
     
-    参数:
-        model: 模型对象
-        save_path: 保存路径
+    Parameters:
+        model: Model object
+        save_path: Save path
     """
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     
-    # 保存模型参数
+    # Save model parameters
     torch.save({
         'state_dict': model.state_dict(),
         'config': {
@@ -358,29 +358,29 @@ def save_model(model, save_path):
         }
     }, save_path)
     
-    print(f"模型已保存至 {save_path}")
+    print(f"Model saved to {save_path}")
 
 def load_model(model_path, item_feat_dim, device):
     """
-    加载保存的模型
+    Load saved model
     
-    参数:
-        model_path: 模型文件路径
-        item_feat_dim: 物品特征维度
-        device: 计算设备
+    Parameters:
+        model_path: Model file path
+        item_feat_dim: Item feature dimension
+        device: Computation device
         
-    返回:
-        model: 加载的模型
+    Returns:
+        model: Loaded model
     """
     from model import DIN
     
-    # 加载模型参数
+    # Load model parameters
     checkpoint = torch.load(model_path, map_location=device)
     
-    # 获取模型配置
+    # Get model configuration
     config = checkpoint['config']
     
-    # 创建模型
+    # Create model
     model = DIN(
         item_feat_dim=item_feat_dim,
         embedding_dim=config['embedding_dim'],
@@ -388,7 +388,7 @@ def load_model(model_path, item_feat_dim, device):
         mlp_hidden_dims=config['mlp_hidden_dims']
     ).to(device)
     
-    # 加载模型参数
+    # Load model parameters
     model.load_state_dict(checkpoint['state_dict'])
     
     return model 
