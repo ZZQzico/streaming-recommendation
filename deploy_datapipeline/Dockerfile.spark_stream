@@ -1,0 +1,37 @@
+FROM bitnami/spark:latest
+
+WORKDIR /app
+
+USER root
+RUN apt-get update && apt-get install -y python3-pip curl unzip && \
+    pip3 install kafka-python redis python-dotenv
+
+# ✅ 配置正确版本
+ENV SPARK_VERSION=3.5.5
+ENV SCALA_VERSION=2.12
+
+# ✅ 下载 Spark 3.5.5 所需 jar，包括 KafkaConfigUpdater 所在的 token-provider 包
+RUN curl -L -o /opt/bitnami/spark/jars/spark-sql-kafka-0-10_${SCALA_VERSION}-${SPARK_VERSION}.jar \
+    https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_${SCALA_VERSION}/${SPARK_VERSION}/spark-sql-kafka-0-10_${SCALA_VERSION}-${SPARK_VERSION}.jar && \
+    curl -L -o /opt/bitnami/spark/jars/spark-kafka-0-10_${SCALA_VERSION}-${SPARK_VERSION}.jar \
+    https://repo1.maven.org/maven2/org/apache/spark/spark-kafka-0-10_${SCALA_VERSION}/${SPARK_VERSION}/spark-kafka-0-10_${SCALA_VERSION}-${SPARK_VERSION}.jar && \
+    curl -L -o /opt/bitnami/spark/jars/spark-token-provider-kafka-0-10_${SCALA_VERSION}-${SPARK_VERSION}.jar \
+    https://repo1.maven.org/maven2/org/apache/spark/spark-token-provider-kafka-0-10_${SCALA_VERSION}/${SPARK_VERSION}/spark-token-provider-kafka-0-10_${SCALA_VERSION}-${SPARK_VERSION}.jar && \
+    curl -L -o /opt/bitnami/spark/jars/kafka-clients-3.5.1.jar \
+    https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.5.1/kafka-clients-3.5.1.jar && \
+    curl -L -o /opt/bitnami/spark/jars/commons-pool2-2.11.1.jar \
+    https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.11.1/commons-pool2-2.11.1.jar
+
+# ✅ 复制代码
+COPY ./data_pipeline/spark_stream /app/spark_stream
+COPY ./data_pipeline/config /app/config
+COPY .env /app
+COPY ./data_pipeline/metrics.py /app/metrics.py
+
+USER 1001
+
+# ✅ 正确启动
+CMD ["spark-submit", "--master", "local[*]", "spark_stream/consumer.py"]
+
+
+#docker build -f Dockerfile.spark_stream -t spark-consumer .
