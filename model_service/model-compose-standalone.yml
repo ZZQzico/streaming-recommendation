@@ -1,0 +1,20 @@
+version: '3.9'
+
+services:
+  model-service:
+    build:
+      context: ..
+      dockerfile: model_service/Dockerfile
+    container_name: model-service
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    volumes:
+      - ../.env:/app/.env
+    environment:
+      - ENV_FILE=/app/.env
+      # 使用环境变量来指定Redis的位置，可以是本地或远程的Redis服务器
+      - REDIS_HOST=${REDIS_HOST:-localhost}  # 默认使用localhost
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DB=${REDIS_DB:-0}
+    network_mode: "host"  # 使用主机网络，可以直接访问本地的Redis 
