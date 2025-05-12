@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+torch
+pydantic
+jinja2        # 如果你要用模板
+requests      # 如果模板端点里用到
