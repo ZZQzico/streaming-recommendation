@@ -168,9 +168,6 @@ class RankNetModel:
             return ranked_items[:top_k]
         
         try:
-            # Simplified implementation: assign random scores to each candidate item, then sort
-            # In actual implementation, this should be real prediction based on the model
-            scores = np.random.random(len(ranked_items))
             reranked_items = [x for _, x in sorted(zip(scores, ranked_items), reverse=True)]
             return reranked_items[:top_k]
         except Exception as e:
