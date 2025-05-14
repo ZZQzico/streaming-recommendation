@@ -123,9 +123,6 @@ class DINModel:
             return candidate_items[:top_k]
         
         try:
-            # Simplified implementation: assign random scores to each candidate item, then sort
-            # In actual implementation, this should be real prediction based on the model
-            scores = np.random.random(len(candidate_items))
             sorted_items = [x for _, x in sorted(zip(scores, candidate_items), reverse=True)]
             return sorted_items[:top_k]
         except Exception as e:
