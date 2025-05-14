@@ -1,0 +1,102 @@
+body {
+    margin: 0;
+    font-family: sans-serif;
+    background: #f0f2f5;
+  }
+  .container {
+    max-width: 600px;
+    margin: 50px auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  .row {
+    margin-bottom: 15px;
+  }
+  .row label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  input[type="text"],
+  input[type="datetime-local"] {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+  }
+  .btn {
+    width: 100%;
+    padding: 10px;
+    background: #1890ff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn:hover {
+    background: #40a9ff;
+  }
+  .btn:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+  }
+  .message {
+    margin-top: 20px;
+    padding: 10px;
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+  }
+  
+  .loading {
+    margin-top: 20px;
+    padding: 10px;
+    text-align: center;
+    color: #1890ff;
+  }
+  
+  .recommendations {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f6ffed;
+    border: 1px solid #b7eb8f;
+    border-radius: 4px;
+  }
+  
+  .recommendations h3 {
+    margin-top: 0;
+    color: #52c41a;
+  }
+  
+  .recommendations ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+  
+  .recommendations li {
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .flag-btn {
+    background-color: #f6ffed;
+    border: 1px solid #b7eb8f;
+    color: #52c41a;
+    border-radius: 4px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  
+  .flag-btn:hover {
+    background-color: #52c41a;
+    color: white;
+  }
+  
+  .flag-btn.clicked {
+    background-color: #52c41a;
+    color: white;
+  }
+  

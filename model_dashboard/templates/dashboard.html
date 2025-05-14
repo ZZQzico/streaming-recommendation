@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recommendation System Model Evaluation Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            padding-top: 20px;
+            background-color: #f8f9fa;
+        }
+        .card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .card-header {
+            font-weight: bold;
+            background-color: #f1f8ff;
+        }
+        .metric-card {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .metric-title {
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .model-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #0d6efd;
+        }
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">Recommendation System Model Evaluation Dashboard</h1>
+        
+        <div class="row">
+            <!-- LightGCN Model -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        LightGCN (Recall Model)
+                    </div>
+                    <div class="card-body" id="lightgcn-metrics">
+                        <div class="loading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="lightgcn-chart"></canvas>
+                    </div>
+                    <div class="card-footer">
+                        <small class="text-muted">
+                            Dataset: lightgcn_data.csv (User-Item Interactions)
+                        </small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- DIN Model -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        DIN (Ranking Model)
+                    </div>
+                    <div class="card-body" id="din-metrics">
+                        <div class="loading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="din-chart"></canvas>
+                    </div>
+                    <div class="card-footer">
+                        <small class="text-muted">
+                            Dataset: train_data.csv, item_embeddings.csv
+                        </small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- RankNet Model -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        RankNet (Re-ranking Model)
+                    </div>
+                    <div class="card-body" id="ranknet-metrics">
+                        <div class="loading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="ranknet-chart"></canvas>
+                    </div>
+                    <div class="card-footer">
+                        <small class="text-muted">
+                            Dataset: train_data.csv, item_embeddings.csv
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Model Comparison -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        Model Performance Comparison
+                    </div>
+                    <div class="card-body">
+                        <canvas id="comparison-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Model Description -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        Models and Metrics Description
+                    </div>
+                    <div class="card-body">
+                        <h5>LightGCN (Recall Model)</h5>
+                        <p>LightGCN is a graph-based collaborative filtering model for the recall stage of recommendation systems. It learns user and item representations through user-item interaction graphs.</p>
+                        <ul>
+                            <li><strong>Precision@K</strong>: Proportion of relevant items in the top-K recommendations</li>
+                            <li><strong>Recall@K</strong>: Proportion of relevant items that are successfully recommended</li>
+                            <li><strong>NDCG@K</strong>: Normalized Discounted Cumulative Gain, considers the position of items in the ranking</li>
+                        </ul>
+                        
+                        <h5>DIN (Ranking Model)</h5>
+                        <p>DIN (Deep Interest Network) captures user interest changes through an attention mechanism, effectively modeling the relevance between users and candidate items.</p>
+                        <ul>
+                            <li><strong>AUC</strong>: Area Under ROC Curve, evaluates the model's ability to distinguish positive and negative samples</li>
+                            <li><strong>LogLoss</strong>: Log Loss, evaluates the accuracy of predicted probabilities</li>
+                            <li><strong>Accuracy</strong>: Proportion of correctly predicted samples</li>
+                        </ul>
+                        
+                        <h5>RankNet (Re-ranking Model)</h5>
+                        <p>RankNet is a neural network-based pairwise ranking algorithm that learns relative priorities between items for final recommendation list ordering.</p>
+                        <ul>
+                            <li><strong>Accuracy</strong>: Accuracy of pairwise comparisons</li>
+                            <li><strong>NDCG</strong>: Normalized Discounted Cumulative Gain, evaluates ranking quality</li>
+                            <li><strong>MRR</strong>: Mean Reciprocal Rank, evaluates the position of the first relevant result</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Create metric card
+        function createMetricCard(title, value) {
+            return `
+                <div class="metric-card">
+                    <div class="metric-title">${title}</div>
+                    <div class="metric-value">${value}</div>
+                </div>
+            `;
+        }
+        
+        // Show LightGCN metrics
+        async function loadLightGCNMetrics() {
+            try {
+                const response = await fetch('/api/metrics/lightgcn');
+                const data = await response.json();
+                
+                let html = '<div class="row">';
+                html += `<div class="col-md-4">${createMetricCard('Precision@10', data.precision_at_10.toFixed(3))}</div>`;
+                html += `<div class="col-md-4">${createMetricCard('Recall@10', data.recall_at_10.toFixed(3))}</div>`;
+                html += `<div class="col-md-4">${createMetricCard('NDCG@10', data.ndcg_at_10.toFixed(3))}</div>`;
+                html += '</div>';
+                
+                document.getElementById('lightgcn-metrics').innerHTML = html;
+                
+                // Create chart
+                const ctx = document.getElementById('lightgcn-chart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['@5', '@10', '@20'],
+                        datasets: [
+                            {
+                                label: 'Precision',
+                                data: [data.precision_at_5, data.precision_at_10, data.precision_at_20],
+                                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Recall',
+                                data: [data.recall_at_5, data.recall_at_10, data.recall_at_20],
+                                backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'NDCG',
+                                data: [data.ndcg_at_5, data.ndcg_at_10, data.ndcg_at_20],
+                                backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: true,
+                                text: 'LightGCN Evaluation Metrics'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 1
+                            }
+                        }
+                    }
+                });
+                
+                return data;
+            } catch (error) {
+                console.error('Error loading LightGCN metrics:', error);
+                document.getElementById('lightgcn-metrics').innerHTML = '<div class="alert alert-danger">Failed to load metrics</div>';
+                return null;
+            }
+        }
+        
+        // Show DIN metrics
+        async function loadDINMetrics() {
+            try {
+                const response = await fetch('/api/metrics/din');
+                const data = await response.json();
+                
+                let html = '<div class="row">';
+                html += `<div class="col-md-6">${createMetricCard('AUC', data.auc.toFixed(3))}</div>`;
+                html += `<div class="col-md-6">${createMetricCard('Accuracy', data.accuracy.toFixed(3))}</div>`;
+                html += '</div>';
+                html += '<div class="row">';
+                html += `<div class="col-md-6">${createMetricCard('LogLoss', data.logloss.toFixed(3))}</div>`;
+                html += `<div class="col-md-6">${createMetricCard('Loss', data.loss.toFixed(3))}</div>`;
+                html += '</div>';
+                
+                document.getElementById('din-metrics').innerHTML = html;
+                
+                // Create chart
+                const ctx = document.getElementById('din-chart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: ['AUC', 'Accuracy', '1-LogLoss', '1-Loss'],
+                        datasets: [{
+                            label: 'DIN Performance',
+                            data: [data.auc, data.accuracy, 1-data.logloss, 1-data.loss],
+                            fill: true,
+                            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgba(255, 99, 132, 1)'
+                        }]
+                    },
+                    options: {
+                        elements: {
+                            line: {
+                                borderWidth: 3
+                            }
+                        },
+                        scales: {
+                            r: {
+                                angleLines: {
+                                    display: true
+                                },
+                                suggestedMin: 0,
+                                suggestedMax: 1
+                            }
+                        }
+                    }
+                });
+                
+                return data;
+            } catch (error) {
+                console.error('Error loading DIN metrics:', error);
+                document.getElementById('din-metrics').innerHTML = '<div class="alert alert-danger">Failed to load metrics</div>';
+                return null;
+            }
+        }
+        
+        // Show RankNet metrics
+        async function loadRankNetMetrics() {
+            try {
+                const response = await fetch('/api/metrics/ranknet');
+                const data = await response.json();
+                
+                let html = '<div class="row">';
+                html += `<div class="col-md-6">${createMetricCard('Accuracy', data.accuracy.toFixed(3))}</div>`;
+                html += `<div class="col-md-6">${createMetricCard('NDCG', data.ndcg.toFixed(3))}</div>`;
+                html += '</div>';
+                html += '<div class="row">';
+                html += `<div class="col-md-6">${createMetricCard('MRR', data.mrr.toFixed(3))}</div>`;
+                html += `<div class="col-md-6">${createMetricCard('Loss', data.loss.toFixed(3))}</div>`;
+                html += '</div>';
+                
+                document.getElementById('ranknet-metrics').innerHTML = html;
+                
+                // Create chart
+                const ctx = document.getElementById('ranknet-chart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'polarArea',
+                    data: {
+                        labels: ['Accuracy', 'NDCG', 'MRR', '1-Loss'],
+                        datasets: [{
+                            data: [data.accuracy, data.ndcg, data.mrr, 1-data.loss],
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.5)',
+                                'rgba(54, 162, 235, 0.5)',
+                                'rgba(255, 206, 86, 0.5)',
+                                'rgba(75, 192, 192, 0.5)'
+                            ],
+                            borderColor: [
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(75, 192, 192, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: true,
+                                text: 'RankNet Evaluation Metrics'
+                            }
+                        },
+                        scales: {
+                            r: {
+                                max: 1,
+                                min: 0
+                            }
+                        }
+                    }
+                });
+                
+                return data;
+            } catch (error) {
+                console.error('Error loading RankNet metrics:', error);
+                document.getElementById('ranknet-metrics').innerHTML = '<div class="alert alert-danger">Failed to load metrics</div>';
+                return null;
+            }
+        }
+        
+        // Create model comparison chart
+        async function createComparisonChart(lightgcnData, dinData, ranknetData) {
+            if (!lightgcnData || !dinData || !ranknetData) return;
+            
+            // Prepare comparison data
+            const comparisonData = {
+                lightgcn: {
+                    recall: lightgcnData.recall_at_10,
+                    ndcg: lightgcnData.ndcg_at_10
+                },
+                din: {
+                    auc: dinData.auc,
+                    accuracy: dinData.accuracy
+                },
+                ranknet: {
+                    accuracy: ranknetData.accuracy,
+                    ndcg: ranknetData.ndcg
+                }
+            };
+            
+            // Create comparison chart
+            const ctx = document.getElementById('comparison-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['LightGCN', 'DIN', 'RankNet'],
+                    datasets: [
+                        {
+                            label: 'Primary Metric (Recall/AUC/Accuracy)',
+                            data: [
+                                comparisonData.lightgcn.recall,
+                                comparisonData.din.auc,
+                                comparisonData.ranknet.accuracy
+                            ],
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Secondary Metric (NDCG/Accuracy/NDCG)',
+                            data: [
+                                comparisonData.lightgcn.ndcg,
+                                comparisonData.din.accuracy,
+                                comparisonData.ranknet.ndcg
+                            ],
+                            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Model Performance Comparison (Evaluation Metrics)'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const index = context.dataIndex;
+                                    const modelName = ['LightGCN', 'DIN', 'RankNet'][index];
+                                    
+                                    let metricName = '';
+                                    if (context.datasetIndex === 0) {
+                                        metricName = index === 0 ? 'Recall@10' : (index === 1 ? 'AUC' : 'Accuracy');
+                                    } else if (context.datasetIndex === 1) {
+                                        metricName = index === 0 ? 'NDCG@10' : (index === 1 ? 'Accuracy' : 'NDCG');
+                                    }
+                                    
+                                    return `${modelName} - ${metricName}: ${context.parsed.y.toFixed(3)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            title: {
+                                display: true,
+                                text: 'Metric Value'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Load all data
+        async function loadAllData() {
+            const lightgcnData = await loadLightGCNMetrics();
+            const dinData = await loadDINMetrics();
+            const ranknetData = await loadRankNetMetrics();
+            
+            createComparisonChart(lightgcnData, dinData, ranknetData);
+        }
+        
+        // Execute when page loads
+        document.addEventListener('DOMContentLoaded', loadAllData);
+    </script>
+</body>
+</html> 
